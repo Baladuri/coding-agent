@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { createAgent } from './agent';
+import { createMCPClient } from './mcp';
 import { readdirSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { join, basename, resolve } from 'path';
 import { createInterface } from 'readline';
 
 function getProjectStructure(dir: string, prefix = ''): string {
@@ -23,6 +24,34 @@ function getProjectStructure(dir: string, prefix = ''): string {
   }
 
   return result;
+}
+
+function getGitHubRepoInfo(projectPath: string): string | null {
+  try {
+    const gitConfigPath = join(projectPath, '.git', 'config');
+    const gitConfig = readFileSync(gitConfigPath, 'utf-8');
+
+    // Look for remote URLs in the config
+    const remoteUrlRegex = /\[remote\s+"[^"]+"\]\s*url\s*=\s*(.+)/gi;
+    let match;
+    while ((match = remoteUrlRegex.exec(gitConfig)) !== null) {
+      const url = match[1].trim();
+
+      // Extract owner/repo from GitHub URLs
+      const githubRegex = /github\.com[\/:]([^\/]+)\/([^\/\s]+?)(\.git)?$/i;
+      const githubMatch = url.match(githubRegex);
+
+      if (githubMatch) {
+        const owner = githubMatch[1];
+        const repo = githubMatch[2];
+        return `${owner}/${repo}`;
+      }
+    }
+  } catch (error) {
+    // Silently ignore if .git/config doesn't exist or can't be read
+  }
+
+  return null;
 }
 
 function showHelp() {
@@ -56,23 +85,64 @@ async function showThinkingIndicator(duration: number = 2000): Promise<void> {
 }
 
 async function main() {
-  console.log('🚀 Welcome to the Coding Agent REPL!');
-  console.log('=====================================');
+  // Detect project path from CLI args or use current directory
+  const projectPath = process.argv[2] ? resolve(process.argv[2]) : process.cwd();
+  const projectName = basename(projectPath);
+  const githubRepo = getGitHubRepoInfo(projectPath);
+
+  console.log('🤖 Coding Agent');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📁 Project: ${projectName}`);
+  console.log(`📍 Path:    ${projectPath}`);
+  if (githubRepo) {
+    console.log(`🔗 GitHub:  github.com/${githubRepo}`);
+  }
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('✅ Ready. Type a message or \'help\' for commands.');
+  console.log();
 
   let agent: any;
   let projectContext = '';
 
   try {
+    console.log('Initializing MCP client...');
+    // Temporarily suppress stdout to hide MCP server logs
+    const originalStdout = process.stdout.write;
+    const originalStderr = process.stderr.write;
+    process.stdout.write = () => true;
+    process.stderr.write = () => true;
+
+    const mcpClient = createMCPClient(projectPath);
+
     console.log('Creating agent...');
-    agent = await createAgent();
+    agent = await createAgent(mcpClient);
+
+    // Restore stdout/stderr after agent creation
+    process.stdout.write = originalStdout;
+    process.stderr.write = originalStderr;
 
     console.log('Loading project context...');
     // Get project structure
-    const projectStructure = getProjectStructure(process.cwd());
+    const projectStructure = getProjectStructure(projectPath);
 
     // Read key files
-    const packageJson = readFileSync('package.json', 'utf-8');
-    const tsconfigJson = readFileSync('tsconfig.json', 'utf-8');
+    const packageJsonPath = join(projectPath, 'package.json');
+    const tsconfigJsonPath = join(projectPath, 'tsconfig.json');
+
+    let packageJson = '';
+    let tsconfigJson = '';
+
+    try {
+      packageJson = readFileSync(packageJsonPath, 'utf-8');
+    } catch (e) {
+      packageJson = 'package.json not found';
+    }
+
+    try {
+      tsconfigJson = readFileSync(tsconfigJsonPath, 'utf-8');
+    } catch (e) {
+      tsconfigJson = 'tsconfig.json not found';
+    }
 
     projectContext = `
 Project structure:
@@ -88,10 +158,9 @@ This is the current project context. Use this information to help answer user qu
 `;
 
     console.log('✅ Agent initialized with project context!');
-    showHelp();
 
   } catch (error) {
-    console.error('❌ Failed to initialize agent:', error);
+    console.error('❌ Failed to initialize agent:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
@@ -123,7 +192,12 @@ This is the current project context. Use this information to help answer user qu
         console.log('🤔 Processing...');
         await showThinkingIndicator(500);
 
-        const fullQuery = projectContext + '\n\nUser: ' + input;
+        let fullQuery = projectContext;
+        if (githubRepo) {
+          fullQuery += `\n\nGitHub Repository: ${githubRepo}`;
+        }
+        fullQuery += '\n\nUser question: ' + input;
+
         const result = await agent.generate(fullQuery);
 
         console.log('\n🤖 Agent:', result.text);

@@ -1,54 +1,275 @@
 # Coding Agent
 
-A TypeScript-based AI coding agent built with Mastra framework and Anthropic Claude.
+A globally installable CLI agent that understands your codebase and acts on your behalf through natural language. Built with Mastra, Claude AI, and the Model Context Protocol (MCP).
 
 ## Features
 
-- **AI-Powered Code Analysis**: Uses Claude Opus 4 for intelligent code understanding
-- **Project Structure Analysis**: Automatically analyzes project files and dependencies
-- **MCP Integration**: Configured for Model Context Protocol servers (filesystem and GitHub)
-- **TypeScript Support**: Full TypeScript implementation with strict typing
+- **Automatic Project Detection** — Detects the project you're in or accepts a path argument
+- **Codebase Understanding** — Reads and analyzes project structure, dependencies, and configuration
+- **GitHub Integration** — Auto-detects repository info from `.git/config` and connects via GitHub MCP server
+- **Persistent Memory** — Remembers conversations across sessions, per-project with semantic-aware history (sliding window of 10 messages)
+- **Natural Language Interaction** — Ask questions and get answers about your code in plain English
+- **GitHub Operations** — Read commits, branches, issues, PRs; create new issues
+- **Global CLI** — Install once, run from any directory
+- **Interactive REPL** — Multi-turn conversations with commands (`help`, `clear`, `exit`)
 
-## Setup
+## Prerequisites
 
-1. Install dependencies:
+- **Node.js**: v20 
+- **npm**: v10 or later
+- **API Keys**:
+  - `ANTHROPIC_API_KEY` — Get from [Anthropic](https://console.anthropic.com)
+  - `GITHUB_TOKEN` — Generate from [GitHub Settings](https://github.com/settings/tokens) (personal access token with repo access)
+
+## Installation
+
+### From Source
+
 ```bash
+git clone https://github.com/Baladuri/coding-agent.git
+cd coding-agent
 npm install
+npm run build
+npm install -g .
 ```
 
-2. Configure environment variables in `.env`:
+### Verify Installation
+
+```bash
+coding-agent --version
+```
+
+## Environment Setup
+
+Create a `.env` file in your project or set these globally:
+
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key
-GITHUB_TOKEN=your_github_personal_access_token
+ANTHROPIC_API_KEY=sk-ant-...
+GITHUB_TOKEN=ghp_...
 ```
 
-3. Run the agent:
+Or export as environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GITHUB_TOKEN="ghp_..."
+```
+
+## Usage
+
+### Basic Usage
+
+Run from inside any project directory:
+
+```bash
+coding-agent
+```
+
+Or point to a specific project:
+
+```bash
+coding-agent /path/to/your/project
+```
+
+### Interactive Commands
+
+Once running, type one of the following:
+
+- `help` — Display available commands
+- `clear` — Clear the terminal screen
+- `exit` or `quit` — Exit the agent
+
+Or type any question to chat with the agent.
+
+### Example Interactions
+
+**Understand the project:**
+```
+coding-agent> What is this project about?
+
+🤖 Agent: Based on the project structure and configuration I can see, this is a TypeScript-based Node.js application...
+```
+
+**Check repository status:**
+```
+coding-agent> Show me recent commits
+
+🤖 Agent: I'll check the recent commits in your repository...
+```
+
+**Query GitHub:**
+```
+coding-agent> What open issues exist?
+
+🤖 Agent: Let me check your GitHub repository for open issues...
+```
+
+**Create an issue:**
+```
+coding-agent> Create a GitHub issue titled "Add support for X"
+
+🤖 Agent: I'll create that issue for you...
+```
+
+**Check branches:**
+```
+coding-agent> What branches exist in this repo?
+
+🤖 Agent: Let me list the available branches...
+```
+
+## How It Works
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│          coding-agent CLI Entry Point            │
+├─────────────────────────────────────────────────┤
+│  1. Detect project path (CLI arg or cwd)        │
+│  2. Extract GitHub info from .git/config        │
+│  3. Create project-specific thread ID           │
+│  4. Load project context (structure, files)     │
+│  5. Initialize Mastra agent with memory         │
+│  6. Start interactive REPL                      │
+└─────────────────────────────────────────────────┘
+         ↓
+    ┌────────────────────────────────┐
+    │   Mastra Agent Framework        │
+    ├────────────────────────────────┤
+    │ - Claude Haiku 4.5              │
+    │ - MCP Client (Filesystem, Git)  │
+    │ - Persistent Memory (LibSQL)    │
+    │ - Tool Execution                │
+    └────────────────────────────────┘
+         ↓
+    ┌────────────────────────────────┐
+    │   Available Tools via MCP       │
+    ├────────────────────────────────┤
+    │ - Filesystem: read/write        │
+    │ - GitHub: repos, issues, PRs    │
+    └────────────────────────────────┘
+         ↓
+    ┌────────────────────────────────┐
+    │   External Services             │
+    ├────────────────────────────────┤
+    │ - Anthropic API (Claude)        │
+    │ - GitHub API                    │
+    └────────────────────────────────┘
+```
+
+### Memory System
+
+- **Per-Project Storage** — Each project gets its own thread ID based on path hash
+- **Sliding Window** — Last 10 messages kept in context to manage token limits
+- **Semantic Recall** — Relevant past messages are retrieved when needed
+- **SQLite Backend** — `memory.db` stores all conversation history
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| **Runtime** | Node.js v20+ |
+| **Language** | TypeScript 6.0+ |
+| **Agent Framework** | Mastra (@mastra/core, @mastra/mcp) |
+| **AI Model** | Anthropic Claude Haiku 4.5 |
+| **MCP Servers** | @modelcontextprotocol/server-filesystem, github-mcp-server |
+| **Memory** | @mastra/memory with LibSQL (@mastra/libsql) |
+| **CLI Framework** | Node.js readline (REPL) |
+| **Build** | TypeScript Compiler (tsc) |
+
+## Project Structure
+
+```
+coding-agent/
+├── src/
+│   ├── agent.ts       # Mastra agent setup with Claude + MCP tools
+│   ├── mcp.ts         # MCP client factory (filesystem + GitHub)
+│   └── index.ts       # Main CLI entry, REPL, project detection
+├── dist/              # Compiled JavaScript (built by tsc)
+├── memory.db          # SQLite persistent memory (created on first run)
+├── package.json       # npm configuration with bin entry
+├── tsconfig.json      # TypeScript compiler config
+└── README.md          # This file
+```
+
+## Configuration
+
+### tsconfig.json
+
+- **Target**: ES2022
+- **Module**: CommonJS
+- **Strict Mode**: Enabled
+- **Output**: `./dist` with declaration files
+- **Platform**: Node.js > 20
+
+### package.json
+
+- **bin**: `{"coding-agent": "./dist/index.js"}`
+- **scripts**: `build` (tsc), `prepare` (auto-build on install), `dev` (tsx in dev mode)
+- **Engine**: Node.js >=20
+
+## Development
+
+### Building from Source
+
+```bash
+npm run build
+```
+
+Output: TypeScript files compiled to `dist/`
+
+### Development Mode (with auto-reload)
+
 ```bash
 npm run dev
 ```
 
-## Architecture
+Runs directly with tsx without building.
 
-- **src/mcp.ts**: MCP client configuration for filesystem and GitHub servers
-- **src/agent.ts**: Mastra agent setup with Claude model and MCP tools
-- **src/index.ts**: Main entry point that analyzes the project and runs the agent
+### Testing Locally
 
-## MCP Integration Notes
+After building:
 
-The project is configured to use MCP servers for enhanced tool access:
+```bash
+node dist/index.js /path/to/test/project
+```
 
-- **Filesystem Server**: Provides file reading/writing capabilities
-- **GitHub Server**: Enables repository operations and code search
+## Troubleshooting
 
-**Current Limitation**: Due to Claude's 200k token context limit, the full MCP tool suite exceeds the maximum prompt size. The current implementation uses direct file system access as a workaround. Future improvements could include:
+### Issue: "ANTHROPIC_API_KEY not found"
 
-- Tool selection/filtering to reduce token usage
-- Streaming tool access
-- Model with larger context windows
+**Solution**: Ensure `.env` file exists in your project directory or set the environment variable:
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
 
-## Technologies Used
+### Issue: "GitHub token not authorized"
 
-- **Mastra**: Agent framework and MCP client
-- **Anthropic Claude**: AI model for code analysis
-- **TypeScript**: Type-safe development
-- **MCP Servers**: Standardized tool integration
+**Solution**: Verify your GitHub token has `repo` scope:
+1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens)
+2. Create a new token with `repo` scope
+3. Update `GITHUB_TOKEN` in `.env`
+
+### Issue: "MCP servers not found" when installed globally
+
+**Solution**: Reinstall globally to ensure MCP server packages are available:
+```bash
+npm install -g .
+```
+
+### Issue: Memory not persisting
+
+**Solution**: Ensure write permissions in the project directory where `memory.db` is created.
+
+## License
+
+ISC
+
+## Contributing
+
+Contributions welcome. Fork the repo, create a feature branch, and submit a pull request.
+
+## Support
+
+For issues, questions, or suggestions, open an [issue on GitHub](https://github.com/Baladuri/coding-agent/issues).

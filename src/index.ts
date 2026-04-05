@@ -2,30 +2,9 @@
 import 'dotenv/config';
 import { createAgent } from './agent';
 import { createMCPClient } from './mcp';
-import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, basename, resolve } from 'path';
 import { createInterface } from 'readline';
-
-function getProjectStructure(dir: string, prefix = ''): string {
-  let result = '';
-  const items = readdirSync(dir);
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const fullPath = join(dir, item);
-    const isLast = i === items.length - 1;
-    const connector = isLast ? '└── ' : '├── ';
-    const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-
-    result += prefix + connector + item + '\n';
-
-    if (statSync(fullPath).isDirectory() && !item.startsWith('.') && item !== 'node_modules') {
-      result += getProjectStructure(fullPath, nextPrefix);
-    }
-  }
-
-  return result;
-}
+import { readFileSync } from 'fs';
 
 function getGitHubRepoInfo(projectPath: string): string | null {
   try {
@@ -100,7 +79,9 @@ async function showThinkingIndicator(duration: number = 2000): Promise<void> {
 
 async function main() {
   // Detect project path from CLI args or use current directory
-  const projectPath = process.argv[2] ? resolve(process.argv[2]) : process.cwd();
+  const projectPath = (process.argv[2] && !process.argv[2].startsWith('--'))
+    ? resolve(process.argv[2])
+    : process.cwd();
   const projectName = basename(projectPath);
   const githubRepo = getGitHubRepoInfo(projectPath);
   const threadId = createProjectThreadId(projectPath, projectName);
@@ -118,7 +99,6 @@ async function main() {
   console.log();
 
   let agent: any;
-  let projectContext = '';
 
   try {
     console.log('Initializing MCP client...');
@@ -138,50 +118,14 @@ async function main() {
     }
 
     console.log('✅ MCP client and agent initialized.');
-    console.log('Loading project context...');
-    // Get project structure
-    const projectStructure = getProjectStructure(projectPath);
-
-    // Read key files
-    const packageJsonPath = join(projectPath, 'package.json');
-    const tsconfigJsonPath = join(projectPath, 'tsconfig.json');
-
-    let packageJson = '';
-    let tsconfigJson = '';
-
-    try {
-      packageJson = readFileSync(packageJsonPath, 'utf-8');
-    } catch (e) {
-      packageJson = 'package.json not found';
-    }
-
-    try {
-      tsconfigJson = readFileSync(tsconfigJsonPath, 'utf-8');
-    } catch (e) {
-      tsconfigJson = 'tsconfig.json not found';
-    }
-
-    projectContext = `
-Project structure:
-${projectStructure}
-
-package.json:
-${packageJson}
-
-tsconfig.json:
-${tsconfigJson}
-
-This is the current project context. Use this information to help answer user questions about the codebase.
-`;
-
-    console.log('✅ Agent initialized with project context!');
 
   } catch (error) {
-    console.error('❌ Failed to initialize agent:', error instanceof Error ? error.stack || error.message : String(error));
-    if (!(error instanceof Error)) {
-      console.error(error);
-    }
-    process.exit(1);
+    console.log('⚠️  MCP client initialization failed, continuing without MCP tools...');
+    console.log('Error:', error instanceof Error ? error.message : String(error));
+
+    // Create agent without MCP client
+    agent = await createAgent(null);
+    console.log('✅ Agent initialized without MCP tools.');
   }
 
   const rl = createInterface({
@@ -212,11 +156,11 @@ This is the current project context. Use this information to help answer user qu
         console.log('🤔 Processing...');
         await showThinkingIndicator(500);
 
-        let fullQuery = projectContext;
+        let fullQuery = '';
         if (githubRepo) {
-          fullQuery += `\n\nGitHub Repository: ${githubRepo}`;
+          fullQuery += `GitHub Repository: ${githubRepo}\n\n`;
         }
-        fullQuery += '\n\nUser question: ' + input;
+        fullQuery += 'User question: ' + input;
 
         const result = await agent.generate(fullQuery, {
           memory: {

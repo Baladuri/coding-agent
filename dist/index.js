@@ -4,25 +4,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config");
 const agent_1 = require("./agent");
 const mcp_1 = require("./mcp");
-const fs_1 = require("fs");
 const path_1 = require("path");
 const readline_1 = require("readline");
-function getProjectStructure(dir, prefix = '') {
-    let result = '';
-    const items = (0, fs_1.readdirSync)(dir);
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const fullPath = (0, path_1.join)(dir, item);
-        const isLast = i === items.length - 1;
-        const connector = isLast ? '└── ' : '├── ';
-        const nextPrefix = prefix + (isLast ? '    ' : '│   ');
-        result += prefix + connector + item + '\n';
-        if ((0, fs_1.statSync)(fullPath).isDirectory() && !item.startsWith('.') && item !== 'node_modules') {
-            result += getProjectStructure(fullPath, nextPrefix);
-        }
-    }
-    return result;
-}
+const fs_1 = require("fs");
 function getGitHubRepoInfo(projectPath) {
     try {
         const gitConfigPath = (0, path_1.join)(projectPath, '.git', 'config');
@@ -82,7 +66,9 @@ async function showThinkingIndicator(duration = 2000) {
 }
 async function main() {
     // Detect project path from CLI args or use current directory
-    const projectPath = process.argv[2] ? (0, path_1.resolve)(process.argv[2]) : process.cwd();
+    const projectPath = (process.argv[2] && !process.argv[2].startsWith('--'))
+        ? (0, path_1.resolve)(process.argv[2])
+        : process.cwd();
     const projectName = (0, path_1.basename)(projectPath);
     const githubRepo = getGitHubRepoInfo(projectPath);
     const threadId = createProjectThreadId(projectPath, projectName);
@@ -98,7 +84,6 @@ async function main() {
     console.log('✅ Ready. Type a message or \'help\' for commands.');
     console.log();
     let agent;
-    let projectContext = '';
     try {
         console.log('Initializing MCP client...');
         const originalStdout = process.stdout.write;
@@ -115,46 +100,13 @@ async function main() {
             process.stderr.write = originalStderr;
         }
         console.log('✅ MCP client and agent initialized.');
-        console.log('Loading project context...');
-        // Get project structure
-        const projectStructure = getProjectStructure(projectPath);
-        // Read key files
-        const packageJsonPath = (0, path_1.join)(projectPath, 'package.json');
-        const tsconfigJsonPath = (0, path_1.join)(projectPath, 'tsconfig.json');
-        let packageJson = '';
-        let tsconfigJson = '';
-        try {
-            packageJson = (0, fs_1.readFileSync)(packageJsonPath, 'utf-8');
-        }
-        catch (e) {
-            packageJson = 'package.json not found';
-        }
-        try {
-            tsconfigJson = (0, fs_1.readFileSync)(tsconfigJsonPath, 'utf-8');
-        }
-        catch (e) {
-            tsconfigJson = 'tsconfig.json not found';
-        }
-        projectContext = `
-Project structure:
-${projectStructure}
-
-package.json:
-${packageJson}
-
-tsconfig.json:
-${tsconfigJson}
-
-This is the current project context. Use this information to help answer user questions about the codebase.
-`;
-        console.log('✅ Agent initialized with project context!');
     }
     catch (error) {
-        console.error('❌ Failed to initialize agent:', error instanceof Error ? error.stack || error.message : String(error));
-        if (!(error instanceof Error)) {
-            console.error(error);
-        }
-        process.exit(1);
+        console.log('⚠️  MCP client initialization failed, continuing without MCP tools...');
+        console.log('Error:', error instanceof Error ? error.message : String(error));
+        // Create agent without MCP client
+        agent = await (0, agent_1.createAgent)(null);
+        console.log('✅ Agent initialized without MCP tools.');
     }
     const rl = (0, readline_1.createInterface)({
         input: process.stdin,
@@ -184,11 +136,11 @@ This is the current project context. Use this information to help answer user qu
                 // Regular message to agent
                 console.log('🤔 Processing...');
                 await showThinkingIndicator(500);
-                let fullQuery = projectContext;
+                let fullQuery = '';
                 if (githubRepo) {
-                    fullQuery += `\n\nGitHub Repository: ${githubRepo}`;
+                    fullQuery += `GitHub Repository: ${githubRepo}\n\n`;
                 }
-                fullQuery += '\n\nUser question: ' + input;
+                fullQuery += 'User question: ' + input;
                 const result = await agent.generate(fullQuery, {
                     memory: {
                         thread: threadId,

@@ -4,15 +4,18 @@ exports.createAgent = createAgent;
 const agent_1 = require("@mastra/core/agent");
 const memory_1 = require("@mastra/memory");
 const libsql_1 = require("@mastra/libsql");
+const os_1 = require("os");
+const path_1 = require("path");
+const memoryDbPath = `file:${(0, path_1.join)((0, os_1.homedir)(), '.coding-agent', 'memory.db')}`;
 async function createAgent(mcpClient) {
     let tools = [];
     if (mcpClient) {
         tools = await mcpClient.getTools();
     }
     const memory = new memory_1.Memory({
-        storage: new libsql_1.LibSQLStore({ url: 'file:./memory.db' }),
+        storage: new libsql_1.LibSQLStore({ url: memoryDbPath }),
         options: {
-            lastMessages: 10,
+            lastMessages: 5,
             semanticRecall: false,
         },
     });

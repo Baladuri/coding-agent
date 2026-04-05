@@ -1,6 +1,10 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
+import { homedir } from 'os';
+import { join } from 'path';
+
+const memoryDbPath = `file:${join(homedir(), '.coding-agent', 'memory.db')}`;
 
 export async function createAgent(mcpClient: any) {
   let tools = [];
@@ -10,9 +14,9 @@ export async function createAgent(mcpClient: any) {
   }
 
   const memory = new Memory({
-    storage: new LibSQLStore({ url: 'file:./memory.db' }),
+    storage: new LibSQLStore({ url: memoryDbPath }),
     options: {
-      lastMessages: 10,
+      lastMessages: 5,
       semanticRecall: false,
     },
   });

@@ -171,8 +171,17 @@ async function main() {
       process.stdout.write = () => true;
       process.stderr.write = () => true;
 
-      const mcpClient = createMCPClient(projectPath);
-      agent = await createAgent(mcpClient);
+      let mcpClient;
+      try {
+        mcpClient = createMCPClient(projectPath, !!githubRepo);
+        agent = await createAgent(mcpClient);
+      } catch (error) {
+        console.log('⚠️  Full MCP client initialization failed, trying filesystem only...');
+        // Try with just filesystem server
+        mcpClient = createMCPClient(projectPath, false);
+        agent = await createAgent(mcpClient);
+        console.log('✅ Agent initialized with filesystem MCP tools only.');
+      }
     } finally {
       process.stdout.write = originalStdout;
       process.stderr.write = originalStderr;

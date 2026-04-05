@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMCPClient = createMCPClient;
 const mcp_1 = require("@mastra/mcp");
-function createMCPClient(projectPath) {
+function createMCPClient(projectPath, isGitHub = false) {
     const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
     const servers = {
         filesystem: {
@@ -11,8 +11,8 @@ function createMCPClient(projectPath) {
             env: {},
         },
     };
-    // Try to add GitHub server if token is available
-    if (process.env.GITHUB_TOKEN) {
+    // Only add GitHub server if it's a GitHub repo and token is available
+    if (isGitHub && process.env.GITHUB_TOKEN) {
         servers.github = {
             command: npxCmd,
             args: ['-y', 'github-mcp-server'],

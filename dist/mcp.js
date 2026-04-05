@@ -2,8 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMCPClient = createMCPClient;
 const mcp_1 = require("@mastra/mcp");
-const dotenv_1 = require("dotenv");
-(0, dotenv_1.config)();
 function createMCPClient(projectPath) {
     const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
     const servers = {

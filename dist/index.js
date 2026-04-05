@@ -1,12 +1,52 @@
 #!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-require("dotenv/config");
 const agent_1 = require("./agent");
 const mcp_1 = require("./mcp");
 const path_1 = require("path");
+const os_1 = require("os");
 const readline_1 = require("readline");
 const fs_1 = require("fs");
+const CONFIG_DIR = (0, path_1.join)((0, os_1.homedir)(), '.coding-agent');
+const CONFIG_FILE = (0, path_1.join)(CONFIG_DIR, 'config.json');
+function loadConfig() {
+    // First check environment variables (always takes priority)
+    if (process.env.ANTHROPIC_API_KEY && process.env.GITHUB_TOKEN) {
+        return;
+    }
+    // Then check home directory config
+    if ((0, fs_1.existsSync)(CONFIG_FILE)) {
+        try {
+            const config = JSON.parse((0, fs_1.readFileSync)(CONFIG_FILE, 'utf-8'));
+            if (config.ANTHROPIC_API_KEY)
+                process.env.ANTHROPIC_API_KEY = config.ANTHROPIC_API_KEY;
+            if (config.GITHUB_TOKEN)
+                process.env.GITHUB_TOKEN = config.GITHUB_TOKEN;
+        }
+        catch (error) {
+            // Silently ignore if config file is invalid
+        }
+    }
+}
+async function setupConfig() {
+    // If keys still missing after loading, prompt user
+    if (!process.env.ANTHROPIC_API_KEY || !process.env.GITHUB_TOKEN) {
+        console.log('\n⚙️  First time setup — API keys required\n');
+        const rl = (0, readline_1.createInterface)({ input: process.stdin, output: process.stdout });
+        const question = (q) => new Promise(resolve => rl.question(q, resolve));
+        const anthropicKey = process.env.ANTHROPIC_API_KEY || (await question('📝 Enter your ANTHROPIC_API_KEY: '));
+        const githubToken = process.env.GITHUB_TOKEN || (await question('📝 Enter your GITHUB_TOKEN: '));
+        rl.close();
+        (0, fs_1.mkdirSync)(CONFIG_DIR, { recursive: true });
+        (0, fs_1.writeFileSync)(CONFIG_FILE, JSON.stringify({
+            ANTHROPIC_API_KEY: anthropicKey,
+            GITHUB_TOKEN: githubToken,
+        }, null, 2));
+        process.env.ANTHROPIC_API_KEY = anthropicKey;
+        process.env.GITHUB_TOKEN = githubToken;
+        console.log(`✅ Config saved to ${CONFIG_FILE}\n`);
+    }
+}
 function getGitHubRepoInfo(projectPath) {
     try {
         const gitConfigPath = (0, path_1.join)(projectPath, '.git', 'config');
@@ -65,6 +105,10 @@ async function showThinkingIndicator(duration = 2000) {
     process.stdout.write('\r' + ' '.repeat(15) + '\r'); // Clear the line
 }
 async function main() {
+    // Load config from home directory first
+    loadConfig();
+    // Then prompt for missing keys if needed
+    await setupConfig();
     // Detect project path from CLI args or use current directory
     const projectPath = (process.argv[2] && !process.argv[2].startsWith('--'))
         ? (0, path_1.resolve)(process.argv[2])

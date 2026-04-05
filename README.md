@@ -39,21 +39,67 @@ npm install -g .
 coding-agent --version
 ```
 
-## Environment Setup
+## Configuration
 
-Create a `.env` file in your project or set these globally:
+The agent stores API keys in `~/.coding-agent/config.json` for easy global access.
 
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-GITHUB_TOKEN=ghp_...
+### First Run Setup
+
+On your first run, the agent will prompt you for required API keys:
+
+```bash
+coding-agent
+⚙️  First time setup — API keys required
+
+📝 Enter your ANTHROPIC_API_KEY: sk-ant-...
+📝 Enter your GITHUB_TOKEN: ghp_...
+
+✅ Config saved to /Users/username/.coding-agent/config.json
 ```
 
-Or export as environment variables:
+Your keys are saved locally and loaded automatically on every run.
+
+### Configuration Priority
+
+The agent loads credentials in this order (first match wins):
+
+1. **Environment Variables** — `ANTHROPIC_API_KEY` and `GITHUB_TOKEN` (useful for CI/CD)
+2. **Home Directory Config** — `~/.coding-agent/config.json`
+3. **First Run Prompt** — Creates config if both are missing
+
+### Manual Configuration
+
+If you prefer to set up manually or update keys:
+
+**Via environment variables:**
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 export GITHUB_TOKEN="ghp_..."
+coding-agent
 ```
+
+**Via config file:**
+
+Create or edit `~/.coding-agent/config.json`:
+
+```json
+{
+  "ANTHROPIC_API_KEY": "sk-ant-...",
+  "GITHUB_TOKEN": "ghp_..."
+}
+```
+
+Then run:
+
+```bash
+coding-agent
+```
+
+### Getting API Keys
+
+- **ANTHROPIC_API_KEY** — Get from [Anthropic Console](https://console.anthropic.com/keys)
+- **GITHUB_TOKEN** — Generate from [GitHub Settings → Developer Settings → Personal Access Tokens](https://github.com/settings/tokens) with `repo` scope
 
 ## Usage
 

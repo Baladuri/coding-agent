@@ -1,7 +1,4 @@
 import { MCPClient } from '@mastra/mcp';
-import { config } from 'dotenv';
-
-config();
 
 export function createMCPClient(projectPath: string) {
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';

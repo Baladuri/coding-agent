@@ -295,9 +295,20 @@ node dist/index.js /path/to/test/project
 
 ### Issue: "ANTHROPIC_API_KEY not found"
 
-**Solution**: Ensure `.env` file exists in your project directory or set the environment variable:
+**Solution**: Ensure your API keys are stored in `~/.coding-agent/config.json` or exported as environment variables:
+
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
+export GITHUB_TOKEN="ghp_..."
+```
+
+If you prefer config file mode, create or update `~/.coding-agent/config.json`:
+
+```json
+{
+  "ANTHROPIC_API_KEY": "sk-ant-...",
+  "GITHUB_TOKEN": "ghp_..."
+}
 ```
 
 ### Issue: "GitHub token not authorized"
@@ -305,7 +316,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 **Solution**: Verify your GitHub token has `repo` scope:
 1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens)
 2. Create a new token with `repo` scope
-3. Update `GITHUB_TOKEN` in `.env`
+3. Update `~/.coding-agent/config.json` or set `GITHUB_TOKEN` as an environment variable
 
 ### Issue: "MCP servers not found" when installed globally
 
@@ -316,7 +327,7 @@ npm install -g .
 
 ### Issue: Memory not persisting
 
-**Solution**: Ensure write permissions in the project directory where `memory.db` is created.
+**Solution**: Ensure write permissions in your home directory so `~/.coding-agent/memory.db` can be written.
 
 ## License
 

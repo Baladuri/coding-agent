@@ -7,7 +7,7 @@ A globally installable CLI agent that understands your codebase and acts on your
 - **Automatic Project Detection** — Detects the project you're in or accepts a path argument
 - **Codebase Understanding** — Reads and analyzes project structure, dependencies, and configuration
 - **GitHub Integration** — Auto-detects repository info from `.git/config` and connects via GitHub MCP server
-- **Persistent Memory** — Remembers conversations across sessions, per-project with semantic-aware history (sliding window of 10 messages)
+- **Persistent Memory** — Remembers conversations across sessions with a centralized SQLite store in `~/.coding-agent/memory.db` and a conservative 5-message history
 - **Natural Language Interaction** — Ask questions and get answers about your code in plain English
 - **GitHub Operations** — Read commits, branches, issues, PRs; create new issues
 - **Global CLI** — Install once, run from any directory
@@ -127,6 +127,16 @@ Once running, type one of the following:
 
 Or type any question to chat with the agent.
 
+### File Reading Behavior
+
+The agent is configured to be extremely conservative when scanning your repository:
+
+- It will only read 2–3 files per response
+- It lists the top-level directory first and does not read file contents unless requested
+- It avoids reading `node_modules`, `dist`, `build`, `.git`, `vendor`, `coverage`, and `__pycache__`
+- It reads files one at a time, smallest/most relevant first
+- Large files are only read partially unless more detail is explicitly requested
+
 ### Example Interactions
 
 **Understand the project:**
@@ -206,10 +216,10 @@ coding-agent> What branches exist in this repo?
 
 ### Memory System
 
-- **Per-Project Storage** — Each project gets its own thread ID based on path hash
-- **Sliding Window** — Last 10 messages kept in context to manage token limits
-- **Semantic Recall** — Relevant past messages are retrieved when needed
-- **SQLite Backend** — `memory.db` stores all conversation history
+- **Centralized Storage** — Conversation memory is stored in `~/.coding-agent/memory.db`
+- **Sliding Window** — Last 5 messages are kept in context to manage token limits
+- **Semantic Recall** — Disabled by default to avoid excessive context load
+- **SQLite Backend** — `memory.db` stores all conversation history across runs
 
 ## Tech Stack
 

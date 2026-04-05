@@ -2,7 +2,12 @@
   "name": "coding-agent",
   "version": "1.0.0",
   "main": "index.js",
+  "bin": {
+    "coding-agent": "./dist/index.js"
+  },
   "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
     "dev": "tsx src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,9 +18,11 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.66",
     "@mastra/core": "^0.24.9",
+    "@mastra/libsql": "^0.16.4",
     "@mastra/mcp": "^0.14.5",
+    "@mastra/memory": "^0.15.13",
     "@modelcontextprotocol/server-filesystem": "^2026.1.14",
-    "@modelcontextprotocol/server-github": "^2025.4.8"
+    "github-mcp-server": "^1.8.7"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

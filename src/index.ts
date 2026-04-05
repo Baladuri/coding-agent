@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import 'dotenv/config';
 import { createAgent } from './agent';
 import { createMCPClient } from './mcp';
@@ -54,6 +55,19 @@ function getGitHubRepoInfo(projectPath: string): string | null {
   return null;
 }
 
+function createProjectThreadId(projectPath: string, projectName: string): string {
+  const normalizedPath = projectPath
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  const hash = Math.abs(
+    [...projectPath].reduce((acc, char) => ((acc << 5) - acc + char.charCodeAt(0)) | 0, 0)
+  ).toString(36);
+
+  return `${projectName}-${normalizedPath}-${hash}`.slice(0, 64);
+}
+
 function showHelp() {
   console.log(`
 Available commands:
@@ -89,6 +103,8 @@ async function main() {
   const projectPath = process.argv[2] ? resolve(process.argv[2]) : process.cwd();
   const projectName = basename(projectPath);
   const githubRepo = getGitHubRepoInfo(projectPath);
+  const threadId = createProjectThreadId(projectPath, projectName);
+  const resourceId = projectName;
 
   console.log('🤖 Coding Agent');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -106,21 +122,22 @@ async function main() {
 
   try {
     console.log('Initializing MCP client...');
-    // Temporarily suppress stdout to hide MCP server logs
     const originalStdout = process.stdout.write;
     const originalStderr = process.stderr.write;
-    process.stdout.write = () => true;
-    process.stderr.write = () => true;
 
-    const mcpClient = createMCPClient(projectPath);
+    try {
+      // Temporarily suppress MCP server and tool startup logs
+      process.stdout.write = () => true;
+      process.stderr.write = () => true;
 
-    console.log('Creating agent...');
-    agent = await createAgent(mcpClient);
+      const mcpClient = createMCPClient(projectPath);
+      agent = await createAgent(mcpClient);
+    } finally {
+      process.stdout.write = originalStdout;
+      process.stderr.write = originalStderr;
+    }
 
-    // Restore stdout/stderr after agent creation
-    process.stdout.write = originalStdout;
-    process.stderr.write = originalStderr;
-
+    console.log('✅ MCP client and agent initialized.');
     console.log('Loading project context...');
     // Get project structure
     const projectStructure = getProjectStructure(projectPath);
@@ -160,7 +177,10 @@ This is the current project context. Use this information to help answer user qu
     console.log('✅ Agent initialized with project context!');
 
   } catch (error) {
-    console.error('❌ Failed to initialize agent:', error instanceof Error ? error.message : String(error));
+    console.error('❌ Failed to initialize agent:', error instanceof Error ? error.stack || error.message : String(error));
+    if (!(error instanceof Error)) {
+      console.error(error);
+    }
     process.exit(1);
   }
 
@@ -198,7 +218,12 @@ This is the current project context. Use this information to help answer user qu
         }
         fullQuery += '\n\nUser question: ' + input;
 
-        const result = await agent.generate(fullQuery);
+        const result = await agent.generate(fullQuery, {
+          memory: {
+            thread: threadId,
+            resource: resourceId,
+          },
+        });
 
         console.log('\n🤖 Agent:', result.text);
         console.log(); // Empty line for readability

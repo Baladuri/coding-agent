@@ -1,7 +1,16 @@
 import { Agent } from '@mastra/core/agent';
+import { Memory } from '@mastra/memory';
+import { LibSQLStore } from '@mastra/libsql';
 
 export async function createAgent(mcpClient: any) {
   const tools = await mcpClient.getTools();
+  const memory = new Memory({
+    storage: new LibSQLStore({ url: 'file:./memory.db' }),
+    options: {
+      lastMessages: 10,
+      semanticRecall: false,
+    },
+  });
 
   return new Agent({
     name: 'coding-agent',
@@ -11,5 +20,6 @@ Always read files first for context before answering.
 Explain every action you take and why.`,
     model: 'anthropic/claude-haiku-4-5',
     tools,
+    memory,
   });
 }

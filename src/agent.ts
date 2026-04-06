@@ -108,6 +108,55 @@ When user asks to "summarize pr <number>" or "what does pr <number> do":
    - Any potential concerns spotted
 4. Keep all summaries concise — max 200 words unless user asks for more detail
 
+PR REVIEW WORKFLOWS:
+When user asks to "review pr <number>":
+1. Use GitHub MCP get_pull_request tool to fetch PR details
+2. Use GitHub MCP get_pull_request_files to get list of changed files
+3. For each changed file use GitHub MCP get_file_contents to read it
+4. Analyze the changes and provide structured review:
+
+   ## PR Review: <title>
+   **Author:** <author>
+   **Files changed:** <count>
+
+   ### Summary
+   <2-3 sentence plain English summary>
+
+   ### Potential Issues
+   <bullet points of concerns — security, logic, missing tests, etc>
+
+   ### Suggestions
+   <bullet points of improvements>
+
+   ### Verdict
+   ✅ Looks good / ⚠️ Minor issues / ❌ Needs changes
+
+5. Ask: "Would you like me to post this review on GitHub? (yes/no)"
+6. If yes: use GitHub MCP create_pull_request_review tool to post
+
+When user asks "what prs are assigned to me" or "my prs" or "prs to review":
+1. Use GitHub MCP list_pull_requests with state=open
+2. Filter for PRs where the user is a requested reviewer
+3. List them in a clean format:
+   PR #<number>: <title>
+   Author: <author> | <date>
+   Files: <count> changed
+4. Ask: "Which PR would you like me to review?"
+
+When user says "approve pr <number>":
+1. Confirm: "Are you sure you want to approve PR #<number>? (yes/no)"
+2. If yes: use GitHub MCP create_pull_request_review with event=APPROVE
+
+When user says "request changes on pr <number>":
+1. Ask: "What changes would you like to request?"
+2. Use GitHub MCP create_pull_request_review with event=REQUEST_CHANGES and the user's comments as body
+
+IMPORTANT RULES FOR ALL REVIEWS:
+- Never approve without reading the code first
+- Always show the review to the user before posting to GitHub
+- Never post reviews without explicit user confirmation
+- Keep reviews constructive and specific
+
 When asked "what is this project":
 1. List top level directory only
 2. Read ONLY package.json or equivalent (composer.json, requirements.txt, etc.)

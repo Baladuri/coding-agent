@@ -15,8 +15,7 @@ const gitTool = createTool({
   inputSchema: z.object({
     command: z.string().describe('The git command to run, must start with "git"'),
   }),
-  execute: async ({ context }) => {
-    const { command } = context;
+  execute: async ({ command }) => {
     if (!command.startsWith('git ')) {
       return { error: 'Only git commands are allowed' };
     }
@@ -53,7 +52,7 @@ export async function createAgent(mcpClient: any) {
     .join(', ');
 
   const memory = new Memory({
-    storage: new LibSQLStore({ url: memoryDbPath }),
+    storage: new LibSQLStore({ id: 'coding-agent-memory', url: memoryDbPath }),
     options: {
       lastMessages: 5,
       semanticRecall: false,
@@ -66,6 +65,7 @@ export async function createAgent(mcpClient: any) {
     : 'anthropic/claude-haiku-4-5';
 
   return new Agent({
+    id: 'coding-agent',
     name: 'coding-agent',
     instructions: `You are a coding agent that helps analyze codebases.
 

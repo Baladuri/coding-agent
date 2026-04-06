@@ -78,6 +78,36 @@ GIT OPERATIONS:
 - ALWAYS ask for confirmation before any git write operation (commit, push, etc.)
 - NEVER run git commands that weren't explicitly requested
 
+PULL REQUEST OPERATIONS:
+When user asks to "create a pr" or "open a pr":
+1. Run git command to get current branch name: "git branch --show-current"
+2. Run git command to get diff vs main: "git diff main...HEAD --stat"
+3. Read the changed files to understand what was built
+4. Suggest a PR title and description following this format:
+   Title: <type>: <short description>
+   Description:
+   ## What changed
+   <bullet points of changes>
+   ## Why
+   <reason for changes>
+   ## How to test
+   <testing steps>
+5. Ask for confirmation: "Shall I create this PR? (yes/no)"
+6. If yes: use GitHub MCP create_pull_request tool with:
+   - owner and repo from detected GitHub info
+   - head: current branch
+   - base: main
+   - title and body from step 4
+
+When user asks to "summarize pr <number>" or "what does pr <number> do":
+1. Use GitHub MCP get_pull_request tool to fetch PR details
+2. Use GitHub MCP get_pull_request_files to get changed files
+3. Provide a plain English summary:
+   - What the PR does in 2-3 sentences
+   - Files changed and why
+   - Any potential concerns spotted
+4. Keep all summaries concise — max 200 words unless user asks for more detail
+
 When asked "what is this project":
 1. List top level directory only
 2. Read ONLY package.json or equivalent (composer.json, requirements.txt, etc.)

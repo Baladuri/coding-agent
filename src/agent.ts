@@ -52,6 +52,11 @@ export async function createAgent(mcpClient: any) {
     },
   });
 
+  const provider = process.env.AI_PROVIDER || 'anthropic';
+  const model = provider === 'google'
+    ? 'google/gemini-2.0-flash'
+    : 'anthropic/claude-haiku-4-5';
+
   return new Agent({
     name: 'coding-agent',
     instructions: `You are a coding agent that helps analyze codebases.
@@ -77,7 +82,7 @@ When asked "what is this project":
 1. List top level directory only
 2. Read ONLY package.json or equivalent (composer.json, requirements.txt, etc.)
 3. Give a 3-4 sentence summary based on that alone`,
-    model: 'anthropic/claude-haiku-4-5',
+    model,
     tools,
     memory,
   });

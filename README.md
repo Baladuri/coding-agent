@@ -15,11 +15,12 @@ A globally installable CLI agent that understands your codebase and acts on your
 
 ## Prerequisites
 
-- **Node.js**: v20 
+- **Node.js**: v20
 - **npm**: v10 or later
-- **API Keys**:
-  - `ANTHROPIC_API_KEY` — Get from [Anthropic](https://console.anthropic.com)
-  - `GITHUB_TOKEN` — Generate from [GitHub Settings](https://github.com/settings/tokens) (personal access token with repo access)
+- **AI Provider**: Choose one:
+  - **Anthropic (Claude)**: Requires paid API key from [Anthropic Console](https://console.anthropic.com/keys)
+  - **Google (Gemini)**: Free tier available at [Google AI Studio](https://aistudio.google.com)
+- **GitHub Token**: Generate from [GitHub Settings → Personal Access Tokens](https://github.com/settings/tokens) with `repo` scope
 
 ## Installation
 
@@ -45,27 +46,31 @@ The agent stores API keys in `~/.coding-agent/config.json` for easy global acces
 
 ### First Run Setup
 
-On your first run, the agent will prompt you for required API keys:
+On your first run, the agent will prompt you to choose an AI provider and enter API keys:
 
 ```bash
 coding-agent
 ⚙️  First time setup — API keys required
 
-📝 Enter your ANTHROPIC_API_KEY: sk-ant-...
+🤖 Which AI provider do you want to use?
+1. Anthropic (Claude) - Requires paid API key
+2. Google (Gemini) - Free tier available at aistudio.google.com
+Enter choice (1 or 2): 2
+📝 Enter your GOOGLE_API_KEY: AI...
 📝 Enter your GITHUB_TOKEN: ghp_...
 
 ✅ Config saved to /Users/username/.coding-agent/config.json
 ```
 
-Your keys are saved locally and loaded automatically on every run.
+Your configuration is saved locally and loaded automatically on every run.
 
 ### Configuration Priority
 
 The agent loads credentials in this order (first match wins):
 
-1. **Environment Variables** — `ANTHROPIC_API_KEY` and `GITHUB_TOKEN` (useful for CI/CD)
+1. **Environment Variables** — `AI_PROVIDER`, `ANTHROPIC_API_KEY`/`GOOGLE_API_KEY`, and `GITHUB_TOKEN` (useful for CI/CD)
 2. **Home Directory Config** — `~/.coding-agent/config.json`
-3. **First Run Prompt** — Creates config if both are missing
+3. **First Run Prompt** — Creates config if credentials are missing
 
 ### Manual Configuration
 
@@ -74,7 +79,8 @@ If you prefer to set up manually or update keys:
 **Via environment variables:**
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+export AI_PROVIDER="google"
+export GOOGLE_API_KEY="AI..."
 export GITHUB_TOKEN="ghp_..."
 coding-agent
 ```
@@ -85,16 +91,35 @@ Create or edit `~/.coding-agent/config.json`:
 
 ```json
 {
+  "AI_PROVIDER": "anthropic",
   "ANTHROPIC_API_KEY": "sk-ant-...",
   "GITHUB_TOKEN": "ghp_..."
 }
 ```
 
-Then run:
+Or for Google:
 
-```bash
-coding-agent
+```json
+{
+  "AI_PROVIDER": "google",
+  "GOOGLE_API_KEY": "AI...",
+  "GITHUB_TOKEN": "ghp_..."
+}
 ```
+
+### Switching Providers
+
+To switch between AI providers, update your `~/.coding-agent/config.json`:
+
+```json
+{
+  "AI_PROVIDER": "google",  // Change to "anthropic" for Claude
+  "GOOGLE_API_KEY": "...",  // Or "ANTHROPIC_API_KEY"
+  "GITHUB_TOKEN": "..."
+}
+```
+
+The agent will use the specified provider on the next run.
 
 ### Getting API Keys
 

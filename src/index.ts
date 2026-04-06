@@ -19,7 +19,9 @@ function loadConfig() {
   if (existsSync(CONFIG_FILE)) {
     try {
       const config = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+      if (config.AI_PROVIDER) process.env.AI_PROVIDER = config.AI_PROVIDER;
       if (config.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = config.ANTHROPIC_API_KEY;
+      if (config.GOOGLE_API_KEY) process.env.GOOGLE_API_KEY = config.GOOGLE_API_KEY;
       if (config.GITHUB_TOKEN) process.env.GITHUB_TOKEN = config.GITHUB_TOKEN;
     } catch (error) {
       // Silently ignore if config file is invalid
@@ -29,35 +31,64 @@ function loadConfig() {
 
 async function setupConfig() {
   // If keys still missing after loading, prompt user
-  if (!process.env.ANTHROPIC_API_KEY || !process.env.GITHUB_TOKEN) {
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+  const hasGoogle = !!process.env.GOOGLE_API_KEY;
+  const hasGitHub = !!process.env.GITHUB_TOKEN;
+
+  if (!hasAnthropic && !hasGoogle && !hasGitHub) {
     console.log('\n⚙️  First time setup — API keys required\n');
 
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     const question = (q: string) => new Promise<string>(resolve => rl.question(q, resolve));
 
-    const anthropicKey =
-      process.env.ANTHROPIC_API_KEY || (await question('📝 Enter your ANTHROPIC_API_KEY: '));
+    // Ask for AI provider choice
+    console.log('🤖 Which AI provider do you want to use?');
+    console.log('1. Anthropic (Claude) - Requires paid API key');
+    console.log('2. Google (Gemini) - Free tier available at aistudio.google.com');
+
+    let providerChoice: string;
+    let aiProvider: string;
+    let apiKey: string;
+
+    while (true) {
+      providerChoice = await question('Enter choice (1 or 2): ');
+      if (providerChoice === '1' || providerChoice === '2') {
+        break;
+      }
+      console.log('Please enter 1 or 2.');
+    }
+
+    if (providerChoice === '1') {
+      aiProvider = 'anthropic';
+      apiKey = process.env.ANTHROPIC_API_KEY || (await question('📝 Enter your ANTHROPIC_API_KEY: '));
+    } else {
+      aiProvider = 'google';
+      apiKey = process.env.GOOGLE_API_KEY || (await question('📝 Enter your GOOGLE_API_KEY: '));
+    }
 
     const githubToken = process.env.GITHUB_TOKEN || (await question('📝 Enter your GITHUB_TOKEN: '));
 
     rl.close();
 
     mkdirSync(CONFIG_DIR, { recursive: true });
-    writeFileSync(
-      CONFIG_FILE,
-      JSON.stringify(
-        {
-          ANTHROPIC_API_KEY: anthropicKey,
-          GITHUB_TOKEN: githubToken,
-        },
-        null,
-        2
-      )
-    );
 
-    process.env.ANTHROPIC_API_KEY = anthropicKey;
+    const config: any = {
+      AI_PROVIDER: aiProvider,
+      GITHUB_TOKEN: githubToken,
+    };
+
+    if (aiProvider === 'anthropic') {
+      config.ANTHROPIC_API_KEY = apiKey;
+      process.env.ANTHROPIC_API_KEY = apiKey;
+    } else {
+      config.GOOGLE_API_KEY = apiKey;
+      process.env.GOOGLE_API_KEY = apiKey;
+    }
+
+    process.env.AI_PROVIDER = aiProvider;
     process.env.GITHUB_TOKEN = githubToken;
 
+    writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
     console.log(`✅ Config saved to ${CONFIG_FILE}\n`);
   }
 }

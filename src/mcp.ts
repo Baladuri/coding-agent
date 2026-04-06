@@ -15,7 +15,7 @@ export function createMCPClient(projectPath: string, isGitHub: boolean = false) 
   if (isGitHub && process.env.GITHUB_TOKEN) {
     servers.github = {
       command: npxCmd,
-      args: ['-y', 'github-mcp-server'],
+      args: ['-y', '@modelcontextprotocol/server-github'],
       env: {
         GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN,
       },

@@ -33,16 +33,24 @@ const gitTool = createTool({
 });
 
 export async function createAgent(mcpClient: any) {
-  let tools = [gitTool];
+  let tools: any = {
+    run_git_command: gitTool,
+  };
 
   if (mcpClient) {
     const mcpTools = await mcpClient.getTools();
-    if (Array.isArray(mcpTools)) {
-      tools = [...tools, ...mcpTools];
+    if (typeof mcpTools === 'object' && !Array.isArray(mcpTools)) {
+      tools = { ...tools, ...mcpTools };
     } else {
-      console.warn('MCP tools are not in expected array format');
+      console.warn('MCP tools are not in expected object format');
     }
   }
+
+  // Build list of available tools for agent awareness
+  const availableTools = Object.keys(tools);
+  const mcpToolList = availableTools
+    .filter(name => name !== 'run_git_command')
+    .join(', ');
 
   const memory = new Memory({
     storage: new LibSQLStore({ url: memoryDbPath }),
@@ -61,7 +69,15 @@ export async function createAgent(mcpClient: any) {
     name: 'coding-agent',
     instructions: `You are a coding agent that helps analyze codebases.
 
-You have filesystem tools to read project files and git tools to run git commands.
+AVAILABLE TOOLS:
+
+GIT TOOLS (local):
+- run_git_command: runs any git command locally
+
+GITHUB MCP TOOLS (available - use these directly):
+${mcpToolList}
+
+IMPORTANT: You DO have GitHub MCP tools available. When you need to create a PR, search for a tool containing "create_pull_request" in the list above and use it directly. Never tell the user you don't have GitHub access.
 
 STRICT RULES - follow these always:
 - NEVER read more than 2-3 files per response
@@ -80,8 +96,8 @@ GIT OPERATIONS:
 
 PULL REQUEST OPERATIONS:
 When user asks to "create a pr" or "open a pr":
-1. Run git command to get current branch name: "git branch --show-current"
-2. Run git command to get diff vs main: "git diff main...HEAD --stat"
+1. Run run_git_command with "git branch --show-current" to get current branch
+2. Run run_git_command with "git diff main...HEAD --stat" to see changes
 3. Read the changed files to understand what was built
 4. Suggest a PR title and description following this format:
    Title: <type>: <short description>
@@ -93,15 +109,17 @@ When user asks to "create a pr" or "open a pr":
    ## How to test
    <testing steps>
 5. Ask for confirmation: "Shall I create this PR? (yes/no)"
-6. If yes: use GitHub MCP create_pull_request tool with:
-   - owner and repo from detected GitHub info
-   - head: current branch
-   - base: main
-   - title and body from step 4
+6. If yes: use the create_pull_request GitHub MCP tool. This tool IS available to you. Do not tell the user to create the PR manually. Call it immediately with:
+   - owner: extracted from GitHub repo info (e.g. "Baladuri")
+   - repo: extracted from GitHub repo info (e.g. "coding-agent")  
+   - title: the PR title you generated
+   - body: the PR description you generated
+   - head: the current branch name from git branch --show-current
+   - base: "main"
 
 When user asks to "summarize pr <number>" or "what does pr <number> do":
-1. Use GitHub MCP get_pull_request tool to fetch PR details
-2. Use GitHub MCP get_pull_request_files to get changed files
+1. Use the get_pull_request GitHub MCP tool to fetch PR details
+2. Use the get_pull_request_files GitHub MCP tool to get changed files
 3. Provide a plain English summary:
    - What the PR does in 2-3 sentences
    - Files changed and why

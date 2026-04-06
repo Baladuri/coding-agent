@@ -173,6 +173,8 @@ async function main() {
 
       let mcpClient;
       try {
+        // Set PROJECT_PATH for git tool
+        process.env.PROJECT_PATH = projectPath;
         mcpClient = createMCPClient(projectPath, !!githubRepo);
         agent = await createAgent(mcpClient);
       } catch (error) {
@@ -194,6 +196,7 @@ async function main() {
     console.log('Error:', error instanceof Error ? error.message : String(error));
 
     // Create agent without MCP client
+    process.env.PROJECT_PATH = projectPath;
     agent = await createAgent(null);
     console.log('✅ Agent initialized without MCP tools.');
   }

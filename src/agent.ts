@@ -54,7 +54,7 @@ export async function createAgent(mcpClient: any) {
 
   const provider = process.env.AI_PROVIDER || 'anthropic';
   const model = provider === 'google'
-    ? 'google/gemini-2.0-flash'
+    ? 'google/gemini-2.5-pro'
     : 'anthropic/claude-haiku-4-5';
 
   return new Agent({

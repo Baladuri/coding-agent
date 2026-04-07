@@ -213,6 +213,7 @@ async function main() {
         process.stdout.write = originalStdout;
         process.stderr.write = originalStderr;
         console.log('⚠️  GitHub MCP failed:', (error as Error).message);
+        console.log('⚠️  dummy log');
         console.log('⚠️  Continuing with filesystem only...');
         mcpClient = createMCPClient(projectPath, false);
         agent = await createAgent(mcpClient);

@@ -224,6 +224,7 @@ async function main() {
     }
 
     console.log('✅ MCP client and agent initialized.');
+    console.log('   Tools:', (agent as any).__toolInfo || 'N/A');
 
   } catch (error) {
     console.log('⚠️  MCP client initialization failed, continuing without MCP tools...');

@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
+import { Workspace, LocalFilesystem } from '@mastra/core/workspace';
 import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
 import { homedir } from 'os';
@@ -36,14 +37,32 @@ export async function createAgent(mcpClient: any) {
     run_git_command: gitTool,
   };
 
+  // Try to extract MCP tools if client supports it
   if (mcpClient) {
-    const mcpTools = await mcpClient.getTools();
-    if (typeof mcpTools === 'object' && !Array.isArray(mcpTools)) {
-      tools = { ...tools, ...mcpTools };
-    } else {
-      console.warn('MCP tools are not in expected object format');
+    try {
+      // In Mastra v1, use listTools() to get available MCP tools
+      if (typeof mcpClient.listTools === 'function') {
+        const mcpTools = await mcpClient.listTools();
+        if (Array.isArray(mcpTools)) {
+          // Convert array of tools to object format with tool names as keys
+          const toolsByName: any = {};
+          mcpTools.forEach((tool: any) => {
+            if (tool.name) {
+              toolsByName[tool.name] = tool;
+            }
+          });
+          tools = { ...tools, ...toolsByName };
+        } else if (typeof mcpTools === 'object') {
+          tools = { ...tools, ...mcpTools };
+        }
+      }
+    } catch (error) {
+      // Silently fail on MCP tools extraction
     }
   }
+
+  // Debug: Log available tools
+  console.log('Available tools:', Object.keys(tools));
 
   // Build list of available tools for agent awareness
   const availableTools = Object.keys(tools);
@@ -64,116 +83,34 @@ export async function createAgent(mcpClient: any) {
     ? 'google/gemini-2.5-pro'
     : 'anthropic/claude-haiku-4-5';
 
-  return new Agent({
+  // Initialize workspace with skills
+  const workspace = new Workspace({
+    filesystem: new LocalFilesystem({
+      basePath: join(__dirname, '..', 'skills'),
+    }),
+    skills: ['git-operations', 'pr-management', 'code-review'],
+  });
+
+  const agent = new Agent({
     id: 'coding-agent',
     name: 'coding-agent',
-    instructions: `You are a coding agent that helps analyze codebases.
+    instructions: `You are a coding agent with specialized skills for git operations, PR management, and code review. 
 
-AVAILABLE TOOLS:
+When the user asks about any of these topics, load and follow the relevant skill:
+- Git operations (status, commit, push) → load /git-operations skill
+- Pull requests (create, review, approve) → load /pr-management skill
+- Code quality and reviews → load /code-review skill
 
-GIT TOOLS (local):
-- run_git_command: runs any git command locally
+You have access to ${mcpToolList} GitHub tools and run_git_command for local operations.
 
-GITHUB MCP TOOLS (available - use these directly):
-${mcpToolList}
-
-IMPORTANT: You DO have GitHub MCP tools available. When you need to create a PR, search for a tool containing "create_pull_request" in the list above and use it directly. Never tell the user you don't have GitHub access.
-
-STRICT RULES - follow these always:
+GENERAL RULES:
 - NEVER read more than 2-3 files per response
-- When asked about a project, ONLY list the top-level directory first using list_directory - do NOT read file contents unless specifically asked
-- Never read files in: node_modules, dist, build, .git, vendor, coverage, __pycache__
+- When asked about a project, list the top-level directory first - do NOT read files unless asked
+- Never read: node_modules, dist, build, .git, vendor, coverage, __pycache__
 - Read files one at a time, smallest/most relevant first
-- If a file seems large, read only the first portion
-- Give concise answers - don't dump entire file contents
-
-GIT OPERATIONS:
-- When user asks to commit: run "git diff --staged" first to see changes, suggest a conventional commit message, ask for confirmation, then run "git commit -m <message>"
-- When user asks for git status: run "git status"
-- When user asks to push: confirm first, then run "git push"
-- ALWAYS ask for confirmation before any git write operation (commit, push, etc.)
-- NEVER run git commands that weren't explicitly requested
-
-PULL REQUEST OPERATIONS:
-When user asks to "create a pr" or "open a pr":
-1. Run run_git_command with "git branch --show-current" to get current branch
-2. Run run_git_command with "git diff main...HEAD --stat" to see changes
-3. Read the changed files to understand what was built
-4. Suggest a PR title and description following this format:
-   Title: <type>: <short description>
-   Description:
-   ## What changed
-   <bullet points of changes>
-   ## Why
-   <reason for changes>
-   ## How to test
-   <testing steps>
-5. Ask for confirmation: "Shall I create this PR? (yes/no)"
-6. If yes: use the create_pull_request GitHub MCP tool. This tool IS available to you. Do not tell the user to create the PR manually. Call it immediately with:
-   - owner: extracted from GitHub repo info (e.g. "Baladuri")
-   - repo: extracted from GitHub repo info (e.g. "coding-agent")  
-   - title: the PR title you generated
-   - body: the PR description you generated
-   - head: the current branch name from git branch --show-current
-   - base: "main"
-
-When user asks to "summarize pr <number>" or "what does pr <number> do":
-1. Use the get_pull_request GitHub MCP tool to fetch PR details
-2. Use the get_pull_request_files GitHub MCP tool to get changed files
-3. Provide a plain English summary:
-   - What the PR does in 2-3 sentences
-   - Files changed and why
-   - Any potential concerns spotted
-4. Keep all summaries concise — max 200 words unless user asks for more detail
-
-PR REVIEW WORKFLOWS:
-When user asks to "review pr <number>":
-1. Use GitHub MCP get_pull_request tool to fetch PR details
-2. Use GitHub MCP get_pull_request_files to get list of changed files
-3. For each changed file use GitHub MCP get_file_contents to read it
-4. Analyze the changes and provide structured review:
-
-   ## PR Review: <title>
-   **Author:** <author>
-   **Files changed:** <count>
-
-   ### Summary
-   <2-3 sentence plain English summary>
-
-   ### Potential Issues
-   <bullet points of concerns — security, logic, missing tests, etc>
-
-   ### Suggestions
-   <bullet points of improvements>
-
-   ### Verdict
-   ✅ Looks good / ⚠️ Minor issues / ❌ Needs changes
-
-5. Ask: "Would you like me to post this review on GitHub? (yes/no)"
-6. If yes: use GitHub MCP create_pull_request_review tool to post
-
-When user asks "what prs are assigned to me" or "my prs" or "prs to review":
-1. Use GitHub MCP list_pull_requests with state=open
-2. Filter for PRs where the user is a requested reviewer
-3. List them in a clean format:
-   PR #<number>: <title>
-   Author: <author> | <date>
-   Files: <count> changed
-4. Ask: "Which PR would you like me to review?"
-
-When user says "approve pr <number>":
-1. Confirm: "Are you sure you want to approve PR #<number>? (yes/no)"
-2. If yes: use GitHub MCP create_pull_request_review with event=APPROVE
-
-When user says "request changes on pr <number>":
-1. Ask: "What changes would you like to request?"
-2. Use GitHub MCP create_pull_request_review with event=REQUEST_CHANGES and the user's comments as body
-
-IMPORTANT RULES FOR ALL REVIEWS:
-- Never approve without reading the code first
-- Always show the review to the user before posting to GitHub
-- Never post reviews without explicit user confirmation
-- Keep reviews constructive and specific
+- Give concise answers - don't dump file contents
+- ALWAYS ask confirmation before write operations (commit, push, posting reviews, creating PRs)
+- NEVER run commands without explicit user request
 
 When asked "what is this project":
 1. List top level directory only
@@ -182,5 +119,12 @@ When asked "what is this project":
     model,
     tools,
     memory,
+    workspace,
   });
+
+  // Attach tool info for debugging
+  (agent as any).__availableTools = availableTools;
+  (agent as any).__toolInfo = `Available tools (${availableTools.length}): ${availableTools.join(', ')}`;
+
+  return agent;
 }

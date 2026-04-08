@@ -80,7 +80,7 @@ export async function createAgent(mcpClient: any) {
 
   const provider = process.env.AI_PROVIDER || 'anthropic';
   const model = provider === 'google'
-    ? 'google/gemini-2.5-pro'
+    ? 'google/gemini-2.5-flash'
     : 'anthropic/claude-haiku-4-5';
 
   // Initialize workspace with skills
@@ -88,18 +88,19 @@ export async function createAgent(mcpClient: any) {
     filesystem: new LocalFilesystem({
       basePath: join(__dirname, '..', 'skills'),
     }),
-    skills: ['git-operations', 'pr-management', 'code-review'],
+    skills: ['git-operations', 'pr-management', 'code-review', 'test-generation'],
   });
 
   const agent = new Agent({
     id: 'coding-agent',
     name: 'coding-agent',
-    instructions: `You are a coding agent with specialized skills for git operations, PR management, and code review. 
+    instructions: `You are a coding agent with specialized skills for git operations, PR management, code review, and test generation.
 
 When the user asks about any of these topics, load and follow the relevant skill:
 - Git operations (status, commit, push) → load /git-operations skill
 - Pull requests (create, review, approve) → load /pr-management skill
 - Code quality and reviews → load /code-review skill
+- Testing, test coverage, test generation → load /test-generation skill
 
 You have access to ${mcpToolList} GitHub tools and run_git_command for local operations.
 

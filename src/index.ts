@@ -21,7 +21,10 @@ function loadConfig() {
       const config = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
       if (config.AI_PROVIDER) process.env.AI_PROVIDER = config.AI_PROVIDER;
       if (config.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = config.ANTHROPIC_API_KEY;
-      if (config.GOOGLE_API_KEY) process.env.GOOGLE_API_KEY = config.GOOGLE_API_KEY;
+      if (config.GOOGLE_API_KEY) {
+        process.env.GOOGLE_API_KEY = config.GOOGLE_API_KEY;
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY = config.GOOGLE_API_KEY;
+      }
       if (config.GITHUB_TOKEN) process.env.GITHUB_TOKEN = config.GITHUB_TOKEN;
     } catch (error) {
       // Silently ignore if config file is invalid
@@ -83,6 +86,7 @@ async function setupConfig() {
     } else {
       config.GOOGLE_API_KEY = apiKey;
       process.env.GOOGLE_API_KEY = apiKey;
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
     }
 
     process.env.AI_PROVIDER = aiProvider;

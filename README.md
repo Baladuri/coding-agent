@@ -1,6 +1,6 @@
 # Coding Agent
 
-A globally installable CLI agent that understands your codebase and acts on your behalf through natural language. Built with Mastra, Claude AI, and the Model Context Protocol (MCP).
+A globally installable CLI agent that understands your codebase and acts on your behalf through natural language. Built with Mastra, Claude AI, Google Gemini, and the Model Context Protocol (MCP).
 
 ## Features
 
@@ -9,7 +9,8 @@ A globally installable CLI agent that understands your codebase and acts on your
 - **GitHub Integration** — Auto-detects repository info from `.git/config` and connects via GitHub MCP server
 - **Persistent Memory** — Remembers conversations across sessions with a centralized SQLite store in `~/.coding-agent/memory.db` and a conservative 5-message history
 - **Natural Language Interaction** — Ask questions and get answers about your code in plain English
-- **GitHub Operations** — Read commits, branches, issues, PRs; create new issues
+- **GitHub Operations** — Read commits, branches, issues, PRs; create new issues and PRs
+- **Modular Skills System** — Specialized capabilities for git operations, PR management, code review, and test generation
 - **Global CLI** — Install once, run from any directory
 - **Interactive REPL** — Multi-turn conversations with commands (`help`, `clear`, `exit`)
 
@@ -192,12 +193,54 @@ coding-agent> Create a GitHub issue titled "Add support for X"
 🤖 Agent: I'll create that issue for you...
 ```
 
+**Create a PR:**
+```
+coding-agent> Create a PR for the changes I just made
+
+🤖 Agent: I'll analyze your changes and create a pull request...
+```
+
+**Code review:**
+```
+coding-agent> Review this PR #42
+
+🤖 Agent: I'll analyze the PR and provide a structured review...
+```
+
+**Test generation:**
+```
+coding-agent> Generate tests for src/auth.ts
+
+🤖 Agent: I'll analyze the auth module and generate comprehensive tests...
+```
+
 **Check branches:**
 ```
 coding-agent> What branches exist in this repo?
 
 🤖 Agent: Let me list the available branches...
 ```
+
+## Skills System
+
+The agent uses a modular skills system for specialized capabilities:
+
+- **Git Operations** — Status checks, commits, pushes with safety confirmations
+- **PR Management** — Create, review, approve PRs; manage inbox and reviews
+- **Code Review** — Analyze code for bugs, security issues, and improvements
+- **Test Generation** — Detect missing tests, analyze coverage, generate comprehensive tests
+
+Skills are loaded dynamically based on user requests and provide structured workflows for complex operations.
+
+## Testing Features
+
+The agent includes intelligent test generation capabilities:
+
+- **Repository Scan Mode** — Analyze full codebase for test coverage gaps
+- **Change/PR Mode** — Detect missing tests for code changes
+- **On-Demand Mode** — Generate tests for specific files
+
+⚠️ **Note**: Testing features require further stress testing and are currently limited by API quota constraints.
 
 ## How It Works
 
@@ -211,17 +254,27 @@ coding-agent> What branches exist in this repo?
 │  2. Extract GitHub info from .git/config        │
 │  3. Create project-specific thread ID           │
 │  4. Load project context (structure, files)     │
-│  5. Initialize Mastra agent with memory         │
+│  5. Initialize Mastra agent with skills         │
 │  6. Start interactive REPL                      │
 └─────────────────────────────────────────────────┘
          ↓
     ┌────────────────────────────────┐
     │   Mastra Agent Framework        │
     ├────────────────────────────────┤
-    │ - Claude Haiku 4.5              │
+    │ - Claude Haiku 4.5 / Gemini     │
     │ - MCP Client (Filesystem, Git)  │
+    │ - Skills System (Modular)       │
     │ - Persistent Memory (LibSQL)    │
     │ - Tool Execution                │
+    └────────────────────────────────┘
+         ↓
+    ┌────────────────────────────────┐
+    │   Skills System                 │
+    ├────────────────────────────────┤
+    │ - Git Operations                │
+    │ - PR Management                 │
+    │ - Code Review                   │
+    │ - Test Generation               │
     └────────────────────────────────┘
          ↓
     ┌────────────────────────────────┐
@@ -235,6 +288,7 @@ coding-agent> What branches exist in this repo?
     │   External Services             │
     ├────────────────────────────────┤
     │ - Anthropic API (Claude)        │
+    │ - Google AI API (Gemini)        │
     │ - GitHub API                    │
     └────────────────────────────────┘
 ```
@@ -252,10 +306,11 @@ coding-agent> What branches exist in this repo?
 |-----------|-----------|
 | **Runtime** | Node.js v20+ |
 | **Language** | TypeScript 6.0+ |
-| **Agent Framework** | Mastra (@mastra/core, @mastra/mcp) |
-| **AI Model** | Anthropic Claude Haiku 4.5 |
+| **Agent Framework** | Mastra v1.22.0 (@mastra/core, @mastra/mcp) |
+| **AI Models** | Anthropic Claude Haiku 4.5 / Google Gemini 2.5-flash |
 | **MCP Servers** | @modelcontextprotocol/server-filesystem, github-mcp-server |
 | **Memory** | @mastra/memory with LibSQL (@mastra/libsql) |
+| **Skills System** | Local filesystem-based skill loading |
 | **CLI Framework** | Node.js readline (REPL) |
 | **Build** | TypeScript Compiler (tsc) |
 
@@ -263,15 +318,20 @@ coding-agent> What branches exist in this repo?
 
 ```
 coding-agent/
+├── skills/                    # Modular skills system
+│   ├── git-operations/        # Git operations skill
+│   ├── pr-management/         # PR management skill
+│   ├── code-review/           # Code review skill
+│   └── test-generation/       # Test generation skill
 ├── src/
-│   ├── agent.ts       # Mastra agent setup with Claude + MCP tools
-│   ├── mcp.ts         # MCP client factory (filesystem + GitHub)
-│   └── index.ts       # Main CLI entry, REPL, project detection
-├── dist/              # Compiled JavaScript (built by tsc)
-├── memory.db          # SQLite persistent memory (created on first run)
-├── package.json       # npm configuration with bin entry
-├── tsconfig.json      # TypeScript compiler config
-└── README.md          # This file
+│   ├── agent.ts               # Mastra agent setup with Claude/Gemini + MCP tools + skills
+│   ├── mcp.ts                 # MCP client factory (filesystem + GitHub)
+│   └── index.ts               # Main CLI entry, REPL, project detection
+├── dist/                      # Compiled JavaScript (built by tsc)
+├── memory.db                  # SQLite persistent memory (created on first run)
+├── package.json               # npm configuration with bin entry
+├── tsconfig.json              # TypeScript compiler config
+└── README.md                  # This file
 ```
 
 ## Configuration
@@ -350,9 +410,30 @@ If you prefer config file mode, create or update `~/.coding-agent/config.json`:
 npm install -g .
 ```
 
-### Issue: Memory not persisting
+### Issue: "GOOGLE_GENERATIVE_AI_API_KEY not found"
 
-**Solution**: Ensure write permissions in your home directory so `~/.coding-agent/memory.db` can be written.
+**Solution**: When using Google Gemini, ensure both environment variables are set:
+
+```bash
+export AI_PROVIDER="google"
+export GOOGLE_API_KEY="AI..."
+export GOOGLE_GENERATIVE_AI_API_KEY="AI..."  # Required by @ai-sdk/google
+export GITHUB_TOKEN="ghp_..."
+```
+
+Or in config file:
+
+```json
+{
+  "AI_PROVIDER": "google",
+  "GOOGLE_API_KEY": "AI...",
+  "GITHUB_TOKEN": "ghp_..."
+}
+```
+
+### Issue: Skills not loading
+
+**Solution**: Ensure the `skills/` directory exists and contains valid SKILL.md files. The agent loads skills from the local filesystem relative to the installation directory.
 
 ## License
 
